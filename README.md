@@ -1,7 +1,7 @@
 # JpegCompression
 Middle term miniproject Image Processing
-🌏 MiniProjectDictionary 🌏
-OOP Dictionary
+🌏 Middle term miniproject Image Processing 🌏
+
 
 COMPLETE_VERSION
 
