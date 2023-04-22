@@ -12,9 +12,15 @@ For developer ✅
 Clone project git clone git@github.com:Kingsoulz4/JpegCompression.git
 
 Contributors ✨
+
 Hoang Van Dat 
+
 Nguyen Ngoc Khang
+
 Bui Ngoc Huy
+
 Tran Ngoc Kinh
+
 Tong Van Hung
+
 Trinh Xuan Hung
