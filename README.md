@@ -7,8 +7,10 @@ COMPLETE_VERSION
 
 Prequisite ✍️
 Python 3.8
+
 For developer ✅
 Clone project git clone git@github.com:Kingsoulz4/JpegCompression.git
+
 Contributors ✨
 Hoang Van Dat 
 Nguyen Ngoc Khang
