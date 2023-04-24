@@ -57,7 +57,6 @@ def quantize(dct_data, quality, num_channel):
     quant_matrix[:, :, 2] = chrominance_quant_matrix
 
     # Quantize the DCT coefficients
-    quantized_data = np.zeros_like(dct_data)
     quantized_data = np.round(
         dct_data / (quant_matrix[:, :, num_channel] * quality / 100))
 
@@ -67,7 +66,7 @@ def quantize(dct_data, quality, num_channel):
 def zigzag_encode(block):
     # Perform zigzag scan on a block
     points = zigzag_points(8)
-    return np.array([block[point] for point in points])
+    return np.array([block[point[0], point[1]] for point in points])
 
 
 def zigzag_points(n):
@@ -127,9 +126,9 @@ def huffman_encode(rl_data):
     # Huffman encode the run-length data
     huff_data = b""
     for rl_block in rl_data:
-        code = encode_block(rl_block)
+        code, table = encode_block(rl_block)
         huff_data += code
-    return huff_data
+    return huff_data, table
 
 
 def encode_block(rl_block):
@@ -149,7 +148,7 @@ def encode_block(rl_block):
         code_str = "{0:b}".format(code)
         code_bytes = int(code_str, 2).to_bytes((len(code_str) + 7) // 8, byteorder='big')
         encoded_block += code_bytes
-    return encoded_block
+    return encoded_block, codes
 
 
 def build_huffman_tree(freq):
@@ -198,11 +197,16 @@ def jpeg_encode(image, quality=50):
     subsampled_image[::2, ::2, 1] = subsampled_image[1::2, ::2, 1]
     subsampled_image[::2, ::2, 2] = subsampled_image[1::2, ::2, 2]
 
-    # Split the image into 8x8 blocks and apply DCT to each block
+    # Split the image into 8x8 blocks and apply JPEG encoding to each block
     block = np.zeros([8, 8])
     blocks = block_split(subsampled_image, block)
+
     dct_data = np.zeros_like(blocks)
     quant_data = np.zeros_like(blocks)
+    bh = blocks.shape[0]
+    bw = blocks.shape[1]
+    encode_data = [[[j + k for k in range(3)] for j in range(bw)] for i in range(bh)]
+    code_table = [[[j + k for k in range(3)] for j in range(bw)] for i in range(bh)]
     for i in range(blocks.shape[0]):
         for j in range(blocks.shape[1]):
             for k in range(3):
@@ -219,18 +223,19 @@ def jpeg_encode(image, quality=50):
                 rl_data = rle_encode(zigzag_encoded)
 
                 # Huffman encode the run-length data
-                encode_data = huffman_encode(rl_data)
+                encode_data[i][j][k], code_table[i][j][k] = huffman_encode(rl_data)
 
-    return encode_data
+    return encode_data, code_table
 
 
 start = time.time()
-img_path = 'Data/old_street.jpg'
+img_path = 'old_street.jpg'
 img = cv2.imread(img_path)
 print(img.shape)
 img1 = cv2.resize(img, (200, 200), interpolation=cv2.INTER_LINEAR)
-huff = jpeg_encode(img1, quality=50)
+huff, huff_table = jpeg_encode(img1, quality=50)
 end = time.time()
 final = end - start
 print(final)
-print(huff)
+print(huff[0][0][0])
+print(huff_table[0][0][0])
