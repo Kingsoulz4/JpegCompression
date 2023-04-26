@@ -1,187 +1,200 @@
 import heapq
+from collections import defaultdict
+
 import numpy as np
 import cv2
 
 
-def rgb_to_ycbcr(rgb_data):
+def rgb_to_ycbcr(img):
     # Convert the RGB data to YCbCr color space
-    r, g, b = np.dsplit(rgb_data, 3)
-    y = 0.299 * r + 0.587 * g + 0.114 * b
-    cb = -0.1687 * r - 0.3313 * g + 0.5 * b + 128
-    cr = 0.5 * r - 0.4187 * g - 0.0813 * b + 128
-    return np.dstack((y, cb, cr))
+    ycbcr_data = np.zeros_like(img)
+    b = img[:, :, 0]
+    g = img[:, :, 1]
+    r = img[:, :, 2]
+    ycbcr_data[:, :, 0] = np.uint8(0.299 * r + 0.587 * g + 0.114 * b)
+    ycbcr_data[:, :, 1] = np.uint8(-0.1687 * r - 0.3313 * g + 0.5 * b + 128)
+    ycbcr_data[:, :, 2] = np.uint8(0.5 * r - 0.4187 * g - 0.0813 * b + 128)
+    return ycbcr_data
 
 
-def apply_dct(block):
-    # Apply DCT to 8x8 blocks of image
-    dct_data = np.zeros_like(block)
-    for i in range(0, block.shape[0], 8):
-        for j in range(0, block.shape[1], 8):
-            dct_data[i:i + 8, j:j + 8] = np.real(dct_2d(block[i:i + 8, j:j + 8]))
-    return dct_data
+def subsampling_422(data):
+    height, width, _ = data.shape
+    Y = data[:, :, 0]
+    Cb = data[:, ::2, 1]
+    Cr = data[:, ::2, 2]
+    return Y, Cb, Cr
 
 
 def dct_2d(x):
     # Apply 2D DCT to a 8x8 block
-    return np.fft.fft2(x, norm="ortho")
+    dct_block = cv2.dct(np.float32(x), cv2.DCT_INVERSE)
+    return dct_block
 
 
-def quantize(dct_data, quality):
-    # Quantize the coefficients using JPEG standard quantization matrix
-    quant_matrix = np.array([[16, 11, 10, 16, 24, 40, 51, 61],
-                             [12, 12, 14, 19, 26, 58, 60, 55],
-                             [14, 13, 16, 24, 40, 57, 69, 56],
-                             [14, 17, 22, 29, 51, 87, 80, 62],
-                             [18, 22, 37, 56, 68, 109, 103, 77],
-                             [24, 35, 55, 64, 81, 104, 113, 92],
-                             [49, 64, 78, 87, 103, 121, 120, 101],
-                             [72, 92, 95, 98, 112, 100, 103, 99]])
-    # Quantization
-    quant_matrix = quant_matrix.reshape((8, 8, 1, 1))
-    for i in range(0, dct_data.shape[0], 8):
-        for j in range(0, dct_data.shape[1], 8):
-            for k in range(0, 3):
-                dct_data[i:i + 8, j:j + 8, :, :, k] = np.round(
-                    dct_data[i:i + 8, j:j + 8, :, :, k] / (quant_matrix * quality / 100))
+def quantize(dct_data, quality, num_channel):
+    # Define the quantization matrix for luminance component
+    luminance_quant_matrix = np.array([[16, 11, 10, 16, 24, 40, 51, 61],
+                                       [12, 12, 14, 19, 26, 58, 60, 55],
+                                       [14, 13, 16, 24, 40, 57, 69, 56],
+                                       [14, 17, 22, 29, 51, 87, 80, 62],
+                                       [18, 22, 37, 56, 68, 109, 103, 77],
+                                       [24, 35, 55, 64, 81, 104, 113, 92],
+                                       [49, 64, 78, 87, 103, 121, 120, 101],
+                                       [72, 92, 95, 98, 112, 100, 103, 99]])
 
-    return dct_data
+    # Define the quantization matrix for chrominance component
+    chrominance_quant_matrix = np.array([[17, 18, 24, 47, 99, 99, 99, 99],
+                                         [18, 21, 26, 66, 99, 99, 99, 99],
+                                         [24, 26, 56, 99, 99, 99, 99, 99],
+                                         [47, 66, 99, 99, 99, 99, 99, 99],
+                                         [99, 99, 99, 99, 99, 99, 99, 99],
+                                         [99, 99, 99, 99, 99, 99, 99, 99],
+                                         [99, 99, 99, 99, 99, 99, 99, 99],
+                                         [99, 99, 99, 99, 99, 99, 99, 99]])
 
+    # Initialize the quantization matrix
+    quant_matrix = np.zeros((8, 8, 3))
 
-def rle_encode(quant_data):
-    # Run-length encode the quantized coefficients
-    rl_data = []
-    for i in range(0, quant_data.shape[0], 8):
-        for j in range(0, quant_data.shape[1], 8):
-            block = quant_data[i:i + 8, j:j + 8]
-            zigzag = zigzag_encode(block)
-            rl_block = rle_encode_block(zigzag)
-            rl_data.append(rl_block)
-    return rl_data
+    # Assign the quantization matrix based on the component
+    quant_matrix[:, :, 0] = luminance_quant_matrix
+    quant_matrix[:, :, 1] = chrominance_quant_matrix
+    quant_matrix[:, :, 2] = chrominance_quant_matrix
+
+    # Quantize the DCT coefficients
+    quantized_data = dct_data / (quant_matrix[:, :, num_channel] * quality / 100)
+
+    return quantized_data.astype(int)
 
 
 def zigzag_encode(block):
     # Perform zigzag scan on a block
-    return np.array([block[point] for point in zigzag_points(8)])
+    points = zigzag_points(8)
+    return np.array([block[point[0], point[1]] for point in points])
 
 
 def zigzag_points(n):
-    # Generate zigzag scan points
-    points = np.empty((n * n, 2), dtype=np.intp)
-    for i in range(n):
-        for j in range(n):
-            k = i + j
-            if k % 2 == 0:
-                points[k // 2] = i, j
+    # Initialize the output array with zeros
+    points = np.zeros((n * n, 2), dtype=int)
+    row, col = 0, 0
+    for i in range(n * n):
+        points[i] = row, col
+        if (row + col) % 2 == 0:
+            # Even stripes
+            if col == n - 1:
+                row += 1
+            elif row == 0:
+                col += 1
             else:
-                points[n * n - 1 - (k // 2)] = i, j
+                row -= 1
+                col += 1
+        else:
+            # Odd stripes
+            if row == n - 1:
+                col += 1
+            elif col == 0:
+                row += 1
+            else:
+                row += 1
+                col -= 1
     return points
 
 
-def rle_encode_block(block):
-    # Run-length encode a zigzag-scanned block
-    rl_block = []
-    i = 0
-    while i < len(block):
-        run = 0
-        while i < len(block) and block[i] == 0:
-            run += 1
-            i += 1
-        if i < len(block):
-            rl_block.append((run, block[i]))
-            i += 1
+def rle_encode(zigzag_encoded):
+    rl_data = ""
+    # Run-length encode
+    rl_block = rle_encode_block(zigzag_encoded.flatten())
+    rl_data += rl_block
+
+    return rl_data
+
+
+def rle_encode_block(zigzag_encoded):
+    # Run-length encode differentials
+    rl_block = ""
+    rl_val = zigzag_encoded[0]
+    count = 1
+    for val in zigzag_encoded[1:]:
+        if val == rl_val:
+            count += 1
+        else:
+            rl_block = rl_block + str(count) + "," + str(rl_val) + ","
+            rl_val = val
+            count = 1
+    rl_block = rl_block + str(count) + "," + str(rl_val)
+
     return rl_block
 
 
-def huffman_encode(rl_data):
-    # Huffman encode the run-length data
-    huff_data = b""
-    for rl_block in rl_data:
-        code = encode_block(rl_block)
-        huff_data += code
-    return huff_data
+def huffman_encoding(rl_data):
+    # Tính tần số xuất hiện của các ký tự trong dữ liệu đầu vào
+    freq_dict = defaultdict(int)
+    for char in rl_data:
+        freq_dict[char] += 1
 
-
-def encode_block(rl_block):
-    # Encode a run-length block using Huffman coding
-    freq = {}
-    for run, val in rl_block:
-        if (run, val) not in freq:
-            freq[(run, val)] = 0
-        freq[(run, val)] += 1
-    tree = build_huffman_tree(freq)
-    codes = assign_huffman_codes(tree)
-    encoded_block = b""
-    for run, val in rl_block:
-        code = codes[(run, val)]
-        encoded_block += code.to_bytes((len(code) + 7) // 8, byteorder='big')
-    return encoded_block
-
-
-def build_huffman_tree(freq):
-    # Build a Huffman tree from frequency dictionary
-    heap = [[wt, [sym, ""]] for sym, wt in freq.items()]
+    # Duyệt tất cả các phần tử và thêm vào hàng đợi ưu tiên
+    heap = [[freq, [char, ""]] for char, freq in freq_dict.items()]
     heapq.heapify(heap)
+
+    # Kết hợp các phần tử trong hàng đợi ưu tiên để tạo ra cây Huffman
     while len(heap) > 1:
-        lo = heapq.heappop(heap)
-        hi = heapq.heappop(heap)
-        for pair in lo[1:]:
+        left = heapq.heappop(heap)
+        right = heapq.heappop(heap)
+        for pair in left[1:]:
             pair[1] = '0' + pair[1]
-        for pair in hi[1:]:
+        for pair in right[1:]:
             pair[1] = '1' + pair[1]
-        heapq.heappush(heap, [lo[0] + hi[0]] + lo[1:] + hi[1:])
-    return heap[0][1:]
+        heapq.heappush(heap, [left[0] + right[0]] + left[1:] + right[1:])
 
+    # Tạo bảng mã hóa từ cây Huffman
+    huffman_dict = dict(heapq.heappop(heap)[1:])
 
-def assign_huffman_codes(tree):
-    # Assign Huffman codes to each symbol in the tree
-    codes = {}
-    for pair in tree:
-        sym, code = pair
-        codes[sym] = int(code, 2)
-    return codes
+    # Mã hóa dữ liệu đầu vào bằng bảng mã hóa Huffman
+    encoded_data = ""
+    for char in rl_data:
+        encoded_data += huffman_dict[char]
+
+    return encoded_data, huffman_dict
 
 
 def block_split(image, block):
     # Split image into non-overlapping blocks
-    height, width, _ = image.shape
+    height, width = image.shape
     bh, bw = block.shape
     blocks_per_row = width // bw
     blocks_per_col = height // bh
-    blocks = np.zeros((blocks_per_col, blocks_per_row, bh, bw, 3), dtype=np.float32)
+    blocks = np.zeros((blocks_per_col, blocks_per_row, bh, bw), dtype=np.int64)
     for row in range(blocks_per_col):
         for col in range(blocks_per_row):
-            blocks[row, col] = image[row*bh:(row+1)*bh, col*bw:(col+1)*bw]
+            blocks[row, col] = image[row * bh:(row + 1) * bh, col * bw:(col + 1) * bw]
     return blocks
 
 
-def jpeg_encode(image, quality=50):
-    # Convert the image to YCbCr color space
-    ycbcr_image = rgb_to_ycbcr(image)
-
-    # Subsample Cb and Cr components using 4:2:0 sampling
-    subsampled_image = ycbcr_image.copy()
-    subsampled_image[::2, ::2, 1] = subsampled_image[1::2, ::2, 1]
-    subsampled_image[::2, ::2, 2] = subsampled_image[1::2, ::2, 2]
-
-    # Split the image into 8x8 blocks and apply DCT to each block
+def jpeg_encode(channel, quality=50):
+    # Split the image into 8x8 blocks and apply JPEG encoding to each block
     block = np.zeros([8, 8])
-    blocks = block_split(subsampled_image, block)
-
+    blocks = block_split(channel, block)
     # Apply DCT to each 8x8 block of image
-    dct_data = apply_dct(blocks)
-    print(dct_data.shape)
-    # Quantize the DCT coefficients
-    quant_data = quantize(dct_data, quality)
+    dct_data = np.zeros_like(blocks)
+    quant_data = np.zeros_like(blocks)
+    bh = blocks.shape[0]
+    bw = blocks.shape[1]
+    encode_data = [[[] for j in range(bw)] for i in range(bh)]
+    code_table = [[[] for j in range(bw)] for i in range(bh)]
+    rl_data = [[[] for j in range(bw)] for i in range(bh)]
+    for i in range(blocks.shape[0]):
+        for j in range(blocks.shape[1]):
+            # Apply DCT to each 8x8 block of image
+            dct_data[i, j, :, :] = dct_2d(blocks[i, j, :, :])
 
-    # Run-length encode the quantized coefficients
-    rl_data = rle_encode(quant_data)
+            # Quantize the DCT coefficients
+            quant_data[i, j, :, :] = quantize(dct_data[i, j, :, :], quality, 0)
 
-    # Huffman encode the run-length data
-    encode_data = huffman_encode(rl_data)
+            # Perform zigzag scan on a block
+            zigzag_encoded = zigzag_encode(quant_data[i, j, :, :])
 
-    return encode_data
+            # Run-length encode the quantized coefficients
+            rl_data[i][j] = rle_encode(zigzag_encoded)
 
-
-img_path = 'Data/old_street.jpg'
-img = cv2.imread(img_path)
-huff = jpeg_encode(img, quality=50)
+            # Huffman encode the run-length data
+            encode_data[i][j], code_table[i][j] = huffman_encoding(rl_data[i][j])
+    return encode_data, code_table
