@@ -1,5 +1,7 @@
 import heapq
 from collections import defaultdict
+from collections import Counter
+from collections import deque
 
 import numpy as np
 import cv2
@@ -126,34 +128,34 @@ def rle_encode_block(zigzag_encoded):
 
 
 def huffman_encoding(rl_data):
-    # Tính tần số xuất hiện của các ký tự trong dữ liệu đầu vào
-    freq_dict = defaultdict(int)
-    for char in rl_data:
-        freq_dict[char] += 1
+    # Count the frequencies of characters
+    freq_dict = Counter(rl_data)
 
-    # Duyệt tất cả các phần tử và thêm vào hàng đợi ưu tiên
-    heap = [[freq, [char, ""]] for char, freq in freq_dict.items()]
-    heapq.heapify(heap)
+    # Initialize the Huffman tree as a deque of (frequency, character) tuples
+    tree = deque(sorted((freq, char) for char, freq in freq_dict.items()))
 
-    # Kết hợp các phần tử trong hàng đợi ưu tiên để tạo ra cây Huffman
-    while len(heap) > 1:
-        left = heapq.heappop(heap)
-        right = heapq.heappop(heap)
-        for pair in left[1:]:
-            pair[1] = '0' + pair[1]
-        for pair in right[1:]:
-            pair[1] = '1' + pair[1]
-        heapq.heappush(heap, [left[0] + right[0]] + left[1:] + right[1:])
+    # Build the Huffman tree by merging nodes
+    while len(tree) > 1:
+        left_freq, left_char = tree.popleft()
+        right_freq, right_char = tree.popleft()
+        node = (left_freq + right_freq, (left_char, right_char))
+        tree.append(node)
 
-    # Tạo bảng mã hóa từ cây Huffman
-    huffman_dict = dict(heapq.heappop(heap)[1:])
+    # Create the Huffman encoding table by traversing the Huffman tree
+    encoding_table = {}
+    def traverse(node, prefix):
+        if isinstance(node, str):
+            encoding_table[node] = prefix
+        else:
+            traverse(node[0], prefix + "0")
+            traverse(node[1], prefix + "1")
+    traverse(tree[0][1], "")
 
-    # Mã hóa dữ liệu đầu vào bằng bảng mã hóa Huffman
-    encoded_data = ""
-    for char in rl_data:
-        encoded_data += huffman_dict[char]
+    # Encode the input string using the Huffman encoding table
+    encoded_data = [encoding_table[char] for char in rl_data]
+    encoded_data = "".join(encoded_data)
 
-    return encoded_data, huffman_dict
+    return encoded_data, encoding_table
 
 
 def block_split(image, block):

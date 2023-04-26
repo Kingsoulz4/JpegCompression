@@ -9,10 +9,10 @@ start = time.time()
 # Read image
 img_path = 'old_street.jpg'
 img = cv2.imread(img_path)
-img1 = cv2.resize(img, (200, 200), interpolation=cv2.INTER_LINEAR)
+img1 = cv2.resize(img, (400, 400), interpolation=cv2.INTER_LINEAR)
 # Convert the image to YCbCr color spaces
 width, height, _ = img1.shape
-ycbcr_image = rgb_to_ycbcr(img1)
+ycbcr_image = cv2.cvtColor(img1, cv2.COLOR_BGR2YCR_CB)
 ycbcr_image = ycbcr_image
 y, u, v = cv2.split(ycbcr_image)
 # Subsample Cb and Cr components using 4:2:2 sampling
@@ -45,7 +45,7 @@ img_decoded = cv2.merge([y_decoded, u_decoded, v_decoded])
 img_decoded = img_decoded
 img_decoded = img_decoded.astype(np.uint8)
 # Convert image to RGB
-img_decoded_rgb = ycbcr_to_rgb(img_decoded)
+img_decoded_rgb = cv2.cvtColor(img_decoded, cv2.COLOR_YCrCb2BGR) #ycbcr_to_rgb(img_decoded)
 print(end1 - start)
 print(end4 - start)
 cv2.imshow('input', img1)
