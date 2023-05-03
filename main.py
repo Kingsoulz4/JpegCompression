@@ -2,6 +2,8 @@ import time
 import cv2
 import numpy as np
 
+import ExporterFileText
+
 from Decode import jpeg_decode, ycbcr_to_rgb
 from Encode import rgb_to_ycbcr, subsampling_422, jpeg_encode
 
@@ -26,6 +28,26 @@ huff_u, huff_table_u = jpeg_encode(subsampled_u, quality=50)
 end2 = time.time()
 print("Encoding channel Cr")
 huff_v, huff_table_v = jpeg_encode(subsampled_v, quality=50)
+
+huff_y_key = 'huff_y'
+huff_u_key = 'huff_u'
+huff_v_key = 'huff_v'
+huff_table_y_key = 'huff_table_y'
+huff_table_u_key = 'huff_table_u'
+huff_table_v_key = 'huff_table_v'
+
+ExporterFileText.ExportToText('data_huff.npz', huff_y_key = huff_y, huff_u_key = huff_u, huff_v_key = huff_v, 
+                    huff_table_y_key = huff_table_y, huff_table_u_key = huff_table_u, huff_table_v_key = huff_table_v)
+
+
+dict_data = np.load('data_huff.npz')
+# extract the first array
+data_huff_v = dict_data[huff_v_key]
+
+print("huff v shape ", np.array(huff_v).shape)
+print("data huff v shape ", np.array(data_huff_v).shape)
+
+
 end3 = time.time()
 # Decoding
 print("Decoding channel y")

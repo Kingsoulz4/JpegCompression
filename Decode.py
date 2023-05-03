@@ -127,9 +127,10 @@ def de_block_split(blocks):
     return channel
 
 
-def jpeg_decode(encoded_data, codes, quality=50):
+def jpeg_decode(encoded_data, codes, quality):
     bw = len(encoded_data)
     bh = len(encoded_data[0])
+    print(bw, bh)
     rl_data = [[[] for j in range(bh)] for i in range(bw)]
     rle_de_data = [[[] for j in range(bh)] for i in range(bw)]
     idct_data = [[[] for j in range(bh)] for i in range(bw)]
