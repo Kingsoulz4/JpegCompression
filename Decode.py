@@ -156,3 +156,44 @@ def jpeg_decode(encoded_data, codes, quality):
             idct_data[i][j] = idct_2d(deq_data)
     channel = de_block_split(idct_data)
     return channel
+
+
+def jpeg_decode_full(file_data):
+    
+    
+    huff_y_key = 'huff_y'
+    huff_u_key = 'huff_u'
+    huff_v_key = 'huff_v'
+    huff_table_y_key = 'huff_table_y'
+    huff_table_u_key = 'huff_table_u'
+    huff_table_v_key = 'huff_table_v'
+    
+    
+    dict_data = np.load(file_data)
+    # extract data
+    huff_y = dict_data[huff_y_key]
+    huff_u = dict_data[huff_u_key]
+    huff_v = dict_data[huff_v_key]
+    huff_table_y = dict_data[huff_table_y_key]
+    huff_table_u = dict_data[huff_table_u_key]
+    huff_table_v = dict_data[huff_table_v_key]
+    
+    
+    # Decoding
+    print("Decoding channel y")
+    y_decoded = jpeg_decode(huff_y, huff_table_y, 50)
+    end4 = time.time()
+    print("Decoding channel Cb")
+    u_decoded = jpeg_decode(huff_u, huff_table_u, 50)
+    end5 = time.time()
+    print("Decoding channel Cr")
+    v_decoded = jpeg_decode(huff_v, huff_table_v, 50)
+    end6 = time.time()
+    # Show result
+    h, w = y_decoded.shape
+    u_decoded = cv2.resize(u_decoded, (w, h), interpolation=cv2.INTER_LINEAR)
+    v_decoded = cv2.resize(v_decoded, (w, h), interpolation=cv2.INTER_LINEAR)
+    img_decoded = cv2.merge([y_decoded, u_decoded, v_decoded])
+    img_decoded = img_decoded.astype(np.uint8)
+    
+    return img_decoded
