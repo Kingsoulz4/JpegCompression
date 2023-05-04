@@ -46,21 +46,16 @@ def calculate_ratio_compression(huff_y, huff_u, huff_v, huff_table_y, huff_table
     return total_blo/ total_ble
 
 
+quality = 50
 start = time.time()
 # Read image
 img_path = 'data/PhotoTraces_Free_RAW_Photos_05_Spring_Tree.dng'
 img = cv2.imread(img_path)
-#img1 = cv2.resize(img, (400, 400), interpolation=cv2.INTER_LINEAR)
 
 with rawpy.imread(img_path) as raw:
     rgb = raw.postprocess()
 
 img1 = rgb
-
-#img1 = rgb
-
-# img1 = cv2.resize(img, (3000, 1000), interpolation=cv2.INTER_LINEAR)
-# cv2.imwrite('image_resize.jpg', img1)
 
 print("Image shape: ", img1.shape)
 
@@ -73,13 +68,13 @@ y, u, v = cv2.split(ycbcr_image)
 subsampled_y, subsampled_u, subsampled_v = subsampling_422(ycbcr_image)
 # Encoding each channel
 print("Encoding channel y")
-huff_y, huff_table_y = jpeg_encode(subsampled_y, quality=50)
+huff_y, huff_table_y = jpeg_encode(subsampled_y, quality=quality)
 end1 = time.time()
 print("Encoding channel Cb")
-huff_u, huff_table_u = jpeg_encode(subsampled_u, quality=50)
+huff_u, huff_table_u = jpeg_encode(subsampled_u, quality=quality)
 end2 = time.time()
 print("Encoding channel Cr")
-huff_v, huff_table_v = jpeg_encode(subsampled_v, quality=50)
+huff_v, huff_table_v = jpeg_encode(subsampled_v, quality=quality)
 
 # Ration compression
 ratio = calculate_ratio_compression(huff_y, huff_u, huff_v, huff_table_y, huff_table_u, huff_table_v)
@@ -92,28 +87,22 @@ huff_table_y_key = 'huff_table_y'
 huff_table_u_key = 'huff_table_u'
 huff_table_v_key = 'huff_table_v'
 
-print("huff_table y shape", np.array(huff_table_y).shape)
-
 file_data = 'data/data_huff.npz'
 
-# np.savez_compressed(file_data, huff_y = huff_y, huff_u = huff_u, huff_v = huff_v, 
-#                     huff_table_y = np.array(huff_table_y), huff_table_u = np.array(huff_table_u), huff_table_v = np.array(huff_table_v))
-np.savez_compressed(file_data, huff_y = huff_y, huff_u = huff_u, huff_v = huff_v, 
+np.savez_compressed(file_data, huff_y = huff_y, huff_u = huff_u, huff_v = huff_v,
                     huff_table_y = huff_table_y, huff_table_u = huff_table_u, huff_table_v = huff_table_v)
-
-
 
 end3 = time.time()
 #Decoding
 print("Decoding channel y")
-y_decoded = jpeg_decode(huff_y, huff_table_y, quality=50)
+y_decoded = jpeg_decode(huff_y, huff_table_y, quality=quality)
 end4 = time.time()
 print("Decoding channel Cb")
-u_decoded = jpeg_decode(huff_u, huff_table_u, quality=50)
+u_decoded = jpeg_decode(huff_u, huff_table_u, quality=quality)
 end5 = time.time()
 print("Decoding channel Cr")
-v_decoded = jpeg_decode(huff_v, huff_table_v, quality=50)
-end6 = time.time()
+v_decoded = jpeg_decode(huff_v, huff_table_v, quality=quality)
+
 # Show result
 h, w = y_decoded.shape
 u_decoded = cv2.resize(u_decoded, (w, h), interpolation=cv2.INTER_LINEAR)
@@ -122,11 +111,9 @@ img_decoded = cv2.merge([y_decoded, u_decoded, v_decoded])
 img_decoded = img_decoded
 img_decoded = img_decoded.astype(np.uint8)
 
-#img_decoded = jpeg_decode_full(file_data)
-
 # Convert image to RGB
 img_decoded_rgb = cv2.cvtColor(img_decoded, cv2.COLOR_YCR_CB2BGR) #ycbcr_to_rgb(img_decoded)
-print(end1 - start)
+print("Run time: ",end1 - start)
 
 cv2.imshow('input', img1)
 cv2.imshow('JPEG img', img_decoded_rgb)
