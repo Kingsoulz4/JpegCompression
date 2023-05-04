@@ -1,5 +1,6 @@
 # JpegCompression
 Middle term miniproject Image Processing
+
 🌏 Middle term miniproject Image Processing 🌏
 
 
