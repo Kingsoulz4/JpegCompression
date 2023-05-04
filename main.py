@@ -48,7 +48,7 @@ def calculate_ratio_compression(huff_y, huff_u, huff_v, huff_table_y, huff_table
 
 start = time.time()
 # Read image
-img_path = 'PhotoTraces_Free_RAW_Photos_05_Spring_Tree.dng'
+img_path = 'data/PhotoTraces_Free_RAW_Photos_05_Spring_Tree.dng'
 img = cv2.imread(img_path)
 #img1 = cv2.resize(img, (400, 400), interpolation=cv2.INTER_LINEAR)
 
@@ -94,7 +94,7 @@ huff_table_v_key = 'huff_table_v'
 
 print("huff_table y shape", np.array(huff_table_y).shape)
 
-file_data = 'data_huff.npz'
+file_data = 'data/data_huff.npz'
 
 # np.savez_compressed(file_data, huff_y = huff_y, huff_u = huff_u, huff_v = huff_v, 
 #                     huff_table_y = np.array(huff_table_y), huff_table_u = np.array(huff_table_u), huff_table_v = np.array(huff_table_v))
@@ -127,10 +127,10 @@ img_decoded = img_decoded.astype(np.uint8)
 # Convert image to RGB
 img_decoded_rgb = cv2.cvtColor(img_decoded, cv2.COLOR_YCR_CB2BGR) #ycbcr_to_rgb(img_decoded)
 print(end1 - start)
-#print(end4 - start)
+
 cv2.imshow('input', img1)
 cv2.imshow('JPEG img', img_decoded_rgb)
-cv2.imwrite('output.jpg', img_decoded_rgb)
+cv2.imwrite('data/output.jpg', img_decoded_rgb)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
 
